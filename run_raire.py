@@ -55,10 +55,9 @@ for contest in contests:
 
     sorted_asrtns = sorted(asrtns)
 
-    print(f"Contest {contest.name}")
     max_est = 0
     if asrtns == []:
-        print("No audit possible")
+        print(f"File {args.input}, Contest {contest.name}, No audit possible")
     else:
         for asrt in sorted_asrtns:
             est = None
@@ -75,8 +74,6 @@ for contest in contests:
 
             est_p = 100*(est/contest.tot_ballots)
 
-            print("{} : {}, {:.2f}%".format(asrt.to_str(), est, est_p))
-
     if max_est != 0:
         max_est_p = 100*(max_est/contest.tot_ballots)
-        print(f"Expected sample size required: {max_est}, {max_est_p:.2f}%")
+        print(f"File {args.input}, Contest {contest.name}, asn {max_est}, {max_est_p:.2f}%")
