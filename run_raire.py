@@ -29,6 +29,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-i', dest='input', required=True)
 parser.add_argument('-bp', dest='bp', action='store_true')
 parser.add_argument('-e', dest='evaluate', action='store_true')
+parser.add_argument('-v', dest='verbose', action='store_true')
 
 parser.add_argument('-agap', dest='agap', type=float, default=0)
 
@@ -38,14 +39,15 @@ parser.add_argument('-r', dest='risklimit', type=float, default=0.05)
 # Used when estimating sample size given non zero error rate for comparison
 # audits. No sample size estimator in sample_estimator.py for ballot polling
 # with non-zero error rate.
-parser.add_argument('-erate', dest='error_rate', type=float, default=0)
+parser.add_argument('-erate', dest='error_rate', type=float, default=0.002)
 parser.add_argument('-seed', dest='seed', type=int, default=1234567)
+parser.add_argument('-reps', dest='reps', type=int, default=2000)
 
 args = parser.parse_args()
 
 
 params = {"risk_limit" : args.risklimit, "lambda" : 0, "gamma" : 1.1, \
-    "error_rate" : args.error_rate, "seed" : args.seed}
+    "error_rate" : args.error_rate, "seed" : args.seed, "reps" : args.reps}
                     
 contests, cvrs = load_contests_from_raire(args.input)
 
@@ -54,7 +56,7 @@ est_fn = bp_estimate if args.bp else cp_estimate
 
 for contest in contests:
     audit = compute_raire_assertions(contest, cvrs, contest.winner, 
-        est_fn, False, agap=args.agap)
+        est_fn, args.verbose, agap=args.agap)
 
     asrtns = []
     for assertion in audit:
@@ -84,6 +86,8 @@ for contest in contests:
             max_est = max(max_est, est)
 
             est_p = 100*(est/contest.tot_ballots)
+            if args.verbose:
+                print("{}, est {},{}%".format(asrt.to_str(), est, est_p))
 
     if max_est != 0:
         max_est = min(max_est, contest.tot_ballots)

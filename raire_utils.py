@@ -18,17 +18,20 @@ import numpy as np
 
 
 class Contest:
-    def __init__(self, name, candidates, winner, total_auditable_ballots):
+    def __init__(self, name, candidates, winner, total_auditable_ballots,\
+        order=[]):
         self.name = name
         self.winner = winner
+        self.outcome = order 
         self.candidates = candidates
         self.tot_ballots = total_auditable_ballots
 
 def load_contests_from_txt(path):
     """
         Format:
-        First line is a comma separated list of candidate identifiers, ending
-        with the winner expressed as ",winner,winner identifier"
+        First line is a comma separated list of candidate identifiers, either
+        ending with the winner expressed as ",winner,winner identifier" or
+        addditionally specifying the full outcome with ",order,sequence"
 
         Second line is party identifiers for each candidate
         Third line is a separator (eg. -----)
@@ -51,9 +54,14 @@ def load_contests_from_txt(path):
     with open(path, "r") as data:
         lines = data.readlines()
 
-        toks = [line.strip() for line in lines[0].strip().split(',')]    
-        winner = toks[-1]
-        cands = toks[:-2]
+        toks = [line.strip() for line in lines[0].strip().split(',')]
+        windx = toks.index("winner")    
+        winner = toks[windx+1]
+        cands = toks[:windx]
+
+        order = []
+        if "order" in toks:
+            order = toks[windx+2:]
 
         bcntr = 0
 
@@ -80,7 +88,8 @@ def load_contests_from_txt(path):
 
                 bcntr += 1
 
-        return [Contest(1, cands, winner)], cvrs
+        return [Contest(1, cands, winner, total_auditable_ballots, \
+            order=order)], cvrs
                 
 
 def load_contests_from_raire(path):
@@ -116,8 +125,14 @@ def load_contests_from_raire(path):
             for j in range(ncands):
                 cands.append(toks[3+j])
 
+            windx = toks.index("winner")    
+            winner = toks[windx+1]
+
+            order = []
+            if "order" in toks:
+                order = toks[windx+2:]
             
-            contest_info[cid] = (cands, toks[-1])
+            contest_info[cid] = (cands, winner, order)
             num_ballots[cid] = 0
 
         for l in range(ncontests+1,len(lines)):
@@ -140,8 +155,8 @@ def load_contests_from_raire(path):
             else:
                 cvrs[bid][cid] = ballot
 
-        for cid,(cands,winner) in contest_info.items():
-            con = Contest(cid, cands, winner, num_ballots[cid])
+        for cid,(cands,winner,order) in contest_info.items():
+            con = Contest(cid, cands, winner, num_ballots[cid], order=order)
 
             contests.append(con)
 
@@ -711,7 +726,19 @@ def perform_dive(node, contest, ballots, neb_matrix, asn_func):
     ncands = len(contest.candidates)
 
     rem_cands = [c for c in contest.candidates if not c in node.tail]
+
+    # sort rem_cands by position in contest.order if it is defined
     next_cand = rem_cands[0]
+    if contest.outcome != []:
+        npos = contest.outcome.index(next_cand)
+
+        for i in range(1, len(rem_cands)):
+            c = rem_cands[i]
+            ipos = contest.outcome.index(c)
+
+            if ipos > npos:
+                next_cand = c
+                npos = ipos
 
     newn = RaireNode([next_cand] + node.tail)
     newn.expandable = False if len(newn.tail) == ncands else True

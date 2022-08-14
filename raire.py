@@ -22,7 +22,8 @@ import sys
 
 
 def compute_raire_assertions(
-    contest, cvrs, winner, asn_func, log, stream=sys.stdout, agap=0
+    contest, cvrs, winner, asn_func, log, stream=sys.stdout, agap=0,\
+    seed=123456
 ):
 
     """
@@ -76,7 +77,7 @@ def compute_raire_assertions(
     """
 
     ncands = len(contest.candidates)
-
+    
     # First look at all of the NEB assertions that could be formed for
     # this contest. We will refer to this matrix when examining the best
     # way to prune branches of the "alternate outcome space". 
