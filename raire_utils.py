@@ -605,7 +605,7 @@ class RaireFrontier:
             node.display(stream=stream)
 
 
-def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
+def find_best_audit(contest, neb_matrix, node, asn_func) :
     '''
     Input:
     node: RaireNode    -  A node in the tree of alternate election outcomes.
@@ -613,8 +613,6 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
                           in the sequence node.tail.
 
     contest: Contest   -  Contest being audited.
-
-    ballots            -  Details of reported ballots for this contest.
 
     neb_matrix         -  |Candidates| x |Candidates| dictionary where 
                           neb_matrix[c1][c2] returns a NEBAssertion stating
@@ -630,6 +628,8 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
     outcomes that end with the sequence node.tail, and assigns that assertion
     to node.best_assertion. If no such assertion can be found, node.assertion
     will equal None after this function is called.
+
+    In this restricted branch, only NEB assertions can be formed.
     '''
 
     ntail = len(node.tail)
@@ -664,57 +664,19 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
 
             best_asrtn = neb
 
-    # We now consider whether we can find a better NEN assertion. We 
-    # want to show that at the point where all the candidates in 'tail'
-    # remain, 'first_in_tail' is not the candidate with the least number
-    # of votes. This means that 'first_in_tail' should not be eliminated next.
-
-    # 'eliminated' is the list of candidates that are not mentioned in 'tail'.
-    eliminated = [c for c in contest.candidates if not c in node.tail]
-
-    # Tally of the candidate 'first_in_tail'
-    tally_first_in_tail = sum([vote_for_cand(first_in_tail, \
-        eliminated, blt) for blt in ballots])
-
-    for later_cand in node.tail[1:]:
-        tally_later_cand =  sum([vote_for_cand(later_cand, \
-            eliminated, blt) for blt in ballots])
-
-        if  tally_first_in_tail > tally_later_cand:
-            # We can create a NEN assertion that says "first_in_cand"
-            # should not be eliminated next, after "eliminated" are
-            # eliminated, because "later_cand" actually has less votes
-            # at this point.
-            estimate = asn_func(tally_first_in_tail, tally_later_cand, \
-                contest.tot_ballots)
-
-            if best_asrtn is None or estimate < best_asrtn.difficulty:
-                nen = NENAssertion(contest, first_in_tail, later_cand, \
-                    eliminated)
-
-                nen.rules_out = node.tail
-                nen.difficulty = estimate
-
-                nen.votes_for_winner = tally_first_in_tail
-                nen.votes_for_loser = tally_later_cand
-
-                best_asrtn = nen
-
     node.best_assertion = best_asrtn
 
     if best_asrtn != None:
         node.estimate = best_asrtn.difficulty
 
 
-def perform_dive(node, contest, ballots, neb_matrix, asn_func):
+def perform_dive(node, contest, neb_matrix, asn_func):
     '''
     Input:
     node: RaireNode    -  A node in the tree of alternate election outcomes.
                          Starting point of dive to a leaf.
 
     contest: Contest   -  Contest being audited.
-
-    ballots:           -  Details of reported ballots for this contest.
 
     neb_matrix         -  |Candidates| x |Candidates| dictionary where 
                           neb_matrix[c1][c2] returns a NEBAssertion stating
@@ -756,7 +718,7 @@ def perform_dive(node, contest, ballots, neb_matrix, asn_func):
         node.best_ancestor != None and node.best_ancestor.estimate <= \
         node.estimate else node
 
-    find_best_audit(contest, ballots, neb_matrix, newn, asn_func)
+    find_best_audit(contest, neb_matrix, newn, asn_func)
 
     if not newn.expandable:
         if newn.estimate == np.inf and newn.best_ancestor.estimate == np.inf:
@@ -767,4 +729,4 @@ def perform_dive(node, contest, ballots, neb_matrix, asn_func):
         return min(newn.estimate, newn.best_ancestor.estimate)
 
     else:
-        return perform_dive(newn, contest, ballots, neb_matrix, asn_func)
+        return perform_dive(newn, contest, neb_matrix, asn_func)

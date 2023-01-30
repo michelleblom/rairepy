@@ -13,8 +13,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+# On this `restricted branch' only NEB assertions can be formed.
 
-from raire_utils import NENAssertion, NEBAssertion, RaireAssertion, \
+from raire_utils import NEBAssertion, RaireAssertion, \
     RaireFrontier, RaireNode, find_best_audit, perform_dive, Contest
 
 import numpy as np
@@ -22,8 +23,8 @@ import sys
 
 
 def compute_raire_assertions(
-    contest, cvrs, winner, asn_func, log, stream=sys.stdout, agap=0,\
-    seed=123456
+    contest, counts, winner, asn_func, log, stream=sys.stdout, \
+    agap=0, seed=123456
 ):
 
     """
@@ -31,18 +32,10 @@ def compute_raire_assertions(
     Inputs:
         contest        - the contest being audited (Contest structure)
 
-        cvrs           - mapping of ballot_id to votes:
-                {
-                    'ballot_id': {
-                        'contest': {
-                            'candidate1': 1,
-                            'candidate2': 0,
-                            'candidate3': 2,
-                            'candidate4': 3,
-                            ...
-                        }
-                    ...
-                }
+        counts         - map between candidate pairs (eg. A,B) and the 
+                         first preference count for A alongside the number
+                         of ballots on which B appears above A or B appears
+                         and A does not, eg. counts[A][B] = (tallyA, tallyB).
 
         winner         - reported winner of the contest
 
@@ -91,11 +84,7 @@ def compute_raire_assertions(
 
             asrn = NEBAssertion(contest.name, c, d)
             
-            tally_c = 0
-            tally_d = 0
-            for _,r in cvrs.items():
-                tally_c += asrn.is_vote_for_winner(r)
-                tally_d += asrn.is_vote_for_loser(r)
+            tally_c, tally_d = counts[c][d] 
 
             if tally_c > tally_d:
                 asrn.difficulty = asn_func(tally_c, tally_d, \
@@ -115,9 +104,6 @@ def compute_raire_assertions(
     # winner. All candidates not mentioned in this tail are assumed to have
     # already been eliminated. 
 
-    ballots = [blt[contest.name] for _,blt in cvrs.items() 
-        if contest.name in blt]
-
     # This is a running lowerbound on the overall difficulty of the 
     # election audit. 
     lowerbound = -10
@@ -136,7 +122,7 @@ def compute_raire_assertions(
             newn = RaireNode([d,c])
             newn.expandable = True if ncands > 2 else False
 
-            find_best_audit(contest, ballots, nebs, newn, asn_func)
+            find_best_audit(contest, nebs, newn, asn_func)
 
             if log:
                 print("TESTED ", file=stream, end='')
@@ -193,7 +179,7 @@ def compute_raire_assertions(
         # branch of the alternate outcomes tree that ends in that leaf. We
         # know that this assertion will be part of the audit, as we have
         # to rule out all branches. 
-        dive_lb = perform_dive(to_expand, contest, ballots, nebs, asn_func)
+        dive_lb = perform_dive(to_expand, contest, nebs, asn_func)
 
         if dive_lb == np.inf:
             # The particular branch we dived along cannot be ruled out
@@ -244,7 +230,7 @@ def compute_raire_assertions(
                     to_expand.best_ancestor.estimate <= to_expand.estimate \
                     else to_expand
 
-                find_best_audit(contest, ballots, nebs, newn, asn_func)
+                find_best_audit(contest, nebs, newn, asn_func)
 
                 if log:
                     print("TESTED ", file=stream, end='')
@@ -316,40 +302,7 @@ def compute_raire_assertions(
             assertions.append(node.best_assertion)
 
     # Assertions will be sorted in order of greatest to least difficulty.
-    sorted_assertions = sorted(assertions)    
-    len_assertions = len(sorted_assertions)
-
-    final_audit = []
-
-    # Some assertions will "subsume" others. For example, an assertion
-    # that says "Candidate A cannot be eliminated before candidate B" will
-    # subsume all NEN assertions that say A is not eliminated next when B
-    # is still standing. What this means is that if the NEB assertion holds,
-    # the NEN assertion will hold, so there is no need to check both of them.  
-    for i in range(len_assertions):
-        assrtn_i = sorted_assertions[i]
-
-        subsumed = False
-        for j in range(len_assertions):
-
-            if i == j: 
-                continue
-
-            assrtn_j = sorted_assertions[j]
-            
-            if assrtn_j.subsumes(assrtn_i):
-                subsumed = True
-
-                if log:
-                    print("", file=stream)
-                    print("{} SUBSUMES {}".format(assrtn_j.to_str(),
-                        assrtn_i.to_str()), file=stream)
-                    print("", file=stream)
-                    
-                break
-
-        if not subsumed:
-            final_audit.append(assrtn_i)
+    final_audit = sorted(assertions)    
 
     if log:
         print("===============================================", file=stream)

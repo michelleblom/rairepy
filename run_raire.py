@@ -53,9 +53,40 @@ contests, cvrs = load_contests_from_raire(args.input)
 
 est_fn = bp_estimate if args.bp else cp_estimate
 
-
 for contest in contests:
-    audit = compute_raire_assertions(contest, cvrs, contest.winner, 
+    # In this restricted version, only NEB assertions are created. Instead of 
+    # passing raire the set of CVRs, we instead pass a map between candidate 
+    # pairs (eg. A,B) and the first preference count for A alongside the number
+    # of ballots on which B appears above A or B appears and A does not, 
+    # eg. counts[A][B] = (tallyA, tallyB).
+    counts = { }
+    for c in contest.candidates:
+        c_counts = {}
+
+        tally_c = 0
+        for d in contest.candidates:
+            if c == d: continue
+
+            tally_d = 0
+            for _,r in cvrs.items():
+                if not contest.name in r:
+                    continue
+
+                c_idx = ranking(c, r[contest.name])
+                if c_idx == 0:
+                    tally_c += 1
+                else:
+                    d_idx = ranking(d, r[contest.name])
+       
+                    tally_d += (1 if d_idx != -1 and (c_idx == -1 or \
+                        (c_idx != -1 and d_idx < c_idx)) else 0)
+
+            c_counts[d] = (tally_c, tally_d)
+
+        counts[c] = c_counts
+ 
+
+    audit = compute_raire_assertions(contest, counts, contest.winner, 
         est_fn, args.verbose, agap=args.agap)
 
     asrtns = []
