@@ -128,12 +128,20 @@ def load_contests_from_raire(path):
             windx = toks.index("winner")    
             winner = toks[windx+1]
 
+            informal = 0
+            inf_index = None
+            if "informal" in toks:
+                inf_index = toks.index("informal")
+                informal = int(toks[inf_index+1])
+
+            
             order = []
             if "order" in toks:
-                order = toks[windx+2:]
+                order = toks[windx+2:inf_index] if inf_index != None else \
+                    toks[widx+2:]
             
             contest_info[cid] = (cands, winner, order)
-            num_ballots[cid] = 0
+            num_ballots[cid] = informal
 
         for l in range(ncontests+1,len(lines)):
             toks = [line.strip() for line in lines[l].strip().split(',')]
