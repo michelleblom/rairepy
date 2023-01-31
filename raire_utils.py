@@ -640,14 +640,19 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
     # We first consider if we can invalidate this outcome by showing that
     # 'first_in_tail' can not-be-eliminated-before a candidate that
     # appears later in tail.
+    #print(node.tail)
     for later_cand in node.tail[1:]: 
         # Can we show that the candidate 'later_cand' must come before 
         # candidate 'first_in_tail' in the elimination sequence?
         neb = neb_matrix[first_in_tail][later_cand]
 
+     #   if neb != None:
+     #       neb.display()
+
         if neb != None and (best_asrtn is None or neb.difficulty < \
             best_asrtn.difficulty):
 
+     #       print("chosen {}".format(neb.difficulty))
             best_asrtn = neb
 
     # We now look at whether there is a candidate not mentioned in 
@@ -658,10 +663,13 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
         if cand in node.tail: continue
 
         neb = neb_matrix[cand][first_in_tail]
-        
+       
+        #if neb != None: 
+        #    neb.display()
         if neb != None and (best_asrtn is None or neb.difficulty < \
             best_asrtn.difficulty):
 
+        #    print("chosen {}".format(neb.difficulty))
             best_asrtn = neb
 
     # We now consider whether we can find a better NEN assertion. We 
@@ -699,6 +707,8 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
                 nen.votes_for_loser = tally_later_cand
 
                 best_asrtn = nen
+                #print("new nen {}".format(nen.difficulty))
+                nen.display()
 
     node.best_assertion = best_asrtn
 
