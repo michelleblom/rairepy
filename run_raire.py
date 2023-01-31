@@ -63,10 +63,10 @@ for contest in contests:
     for c in contest.candidates:
         c_counts = {}
 
-        tally_c = 0
         for d in contest.candidates:
             if c == d: continue
 
+            tally_c = 0
             tally_d = 0
             for _,r in cvrs.items():
                 if not contest.name in r:
