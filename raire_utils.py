@@ -650,27 +650,27 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
 
             best_asrtn = neb
 
+
+    # 'eliminated' is the list of candidates that are not mentioned in 'tail'.
+    eliminated = [c for c in contest.candidates if not c in node.tail]
+
     # We now look at whether there is a candidate not mentioned in 
     # 'tail' (this means they are assumed to be eliminated at some prior
     # point in the elimination sequence), that can not-be-eliminated-before
-    # 'first_in_tail'.
-    for cand in contest.candidates:
-        if cand in node.tail: continue
-
-        neb = neb_matrix[cand][first_in_tail]
+    # 'first_in_tail'. 
+    for cand in eliminated:
+        for cand_in_tail in node.tail:
+            neb = neb_matrix[cand][cand_in_tail]
        
-        if neb != None and (best_asrtn is None or neb.difficulty < \
-            best_asrtn.difficulty):
+            if neb != None and (best_asrtn is None or neb.difficulty < \
+                best_asrtn.difficulty):
 
-            best_asrtn = neb
+                best_asrtn = neb
 
     # We now consider whether we can find a better NEN assertion. We 
     # want to show that at the point where all the candidates in 'tail'
     # remain, 'first_in_tail' is not the candidate with the least number
     # of votes. This means that 'first_in_tail' should not be eliminated next.
-
-    # 'eliminated' is the list of candidates that are not mentioned in 'tail'.
-    eliminated = [c for c in contest.candidates if not c in node.tail]
 
     # Tally of the candidate 'first_in_tail'
     tally_first_in_tail = sum([vote_for_cand(first_in_tail, \
@@ -699,7 +699,6 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
                 nen.votes_for_loser = tally_later_cand
 
                 best_asrtn = nen
-                nen.display()
 
     node.best_assertion = best_asrtn
 
