@@ -138,7 +138,7 @@ def load_contests_from_raire(path):
             order = []
             if "order" in toks:
                 order = toks[windx+2:inf_index] if inf_index != None else \
-                    toks[widx+2:]
+                    toks[windx+2:]
             
             contest_info[cid] = (cands, winner, order)
             num_ballots[cid] = informal
