@@ -191,11 +191,13 @@ if __name__ == "__main__":
     np.seterr(all="ignore")
 
     for contest in contests:
-        winner, runner_up, tot_ballots = sim_irv(contest, cvrs)
+        winner, runner_up, _ = sim_irv(contest, cvrs)
+
+        N = contest.tot_ballots
 
         # Create test for estimating sample sizes (use default settings)
         nnm = NonnegMean(test=NonnegMean.kaplan_kolmogorov, \
-            estim=NonnegMean.optimal_comparison, N=tot_ballots, t=0.5, g=0.1)
+            estim=NonnegMean.optimal_comparison, N=N, t=0.5, g=0.1)
 
         assertions, failures = simple_IRV_assertions(contest, cvrs, winner, \
             runner_up)
@@ -204,14 +206,15 @@ if __name__ == "__main__":
             cp_estimate, False, agap=args.agap)
 
         raire_est = 0
-        raire_assertions = []
         for asrtn in raire_audit:
-            amean = (asrtn.votes_for_winner + 0.5*(tot_ballots - \
-                asrtn.votes_for_winner - asrtn.votes_for_loser))/tot_ballots
+            amean = (asrtn.votes_for_winner + 0.5*(N - \
+                asrtn.votes_for_winner - asrtn.votes_for_loser))/N
 
-            est = sample_size(2*amean-1,args,tot_ballots,nnm,reps=args.reps)
+            est = sample_size(2*amean-1, args, N, nnm)
             raire_est = max(est, raire_est)
-            raire_assertions.append((asrtn, 2*amean-1, est))
+            
+        if raire_est >= N:
+            max_cost = "Full Recount"
 
         if failures != []:
             print("{},contest {}, no simple audit,, RAIRE,{}".format(\
@@ -220,23 +223,14 @@ if __name__ == "__main__":
             max_cost = 0
             simple_assertions = []
             for asrtn in assertions:
-                amean = (asrtn.votes_for_winner + 0.5*(tot_ballots - \
-                    asrtn.votes_for_winner-asrtn.votes_for_loser))/tot_ballots
+                amean = (asrtn.votes_for_winner + 0.5*(N - \
+                    asrtn.votes_for_winner-asrtn.votes_for_loser))/N
 
-                est = sample_size(2*amean-1,args,tot_ballots,nnm,reps=args.reps)
+                est = sample_size(2*amean-1, args, N, nnm)
                 max_cost = max(est, max_cost)
-                simple_assertions.append((asrtn, 2*amean-1, est))
 
-            if max_cost < raire_est:
-                print("Simple:")
-                for asrtn,amargin,cost in simple_assertions:
-                    print("{}, margin, {}, cost {}".format(asrtn.to_str(), \
-                        amargin, cost))
-
-                print("RAIRE:")
-                for asrtn,amargin,cost in raire_assertions:
-                    print("{}, margin, {}, cost {}".format(asrtn.to_str(), \
-                        amargin, cost))
+            if max_cost >= N:
+                max_cost = "Full Recount"
 
             print("{},contest {},simple audit,{},RAIRE,{}".format(args.input,\
                 contest.name, max_cost, raire_est))

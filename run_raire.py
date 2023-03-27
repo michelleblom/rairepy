@@ -34,7 +34,7 @@ parser.add_argument('-v', dest='verbose', action='store_true')
 parser.add_argument('-agap', dest='agap', type=float, default=0)
 
 # Used for estimating sample size for assertions if desired.
-parser.add_argument('-r', dest='risklimit', type=float, default=0.05)
+parser.add_argument('-r', dest='rlimit', type=float, default=0.05)
 
 # Used when estimating sample size given non zero error rate for comparison
 # audits. No sample size estimator in sample_estimator.py for ballot polling
