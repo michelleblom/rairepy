@@ -68,15 +68,15 @@ def simple_IRV_assertions(contest, cvrs, winner, runner_up):
         elif ridx == 0:
             min_r_3 += 1
 
-        else:
-            for c in others:
-                cidx = ranking(c, blt)
+        
+        for c in others:
+            cidx = ranking(c, blt)
 
-                if cidx != -1 and (widx == -1 or cidx < widx):
-                    max_c_w_2[c] += 1
+            if cidx != -1 and (widx == -1 or cidx < widx):
+                max_c_w_2[c] += 1
 
-                if cidx != -1 and (ridx == -1 or cidx < ridx):
-                    max_c_r_3[c] += 1
+            if cidx != -1 and (ridx == -1 or cidx < ridx):
+                max_c_r_3[c] += 1
 
 
 
@@ -176,12 +176,15 @@ if __name__ == "__main__":
             cp_estimate, False, agap=args.agap)
 
         raire_est = 0
+        raire_assertions = []
         for asrtn in raire_audit:
             amean = (asrtn.votes_for_winner + 0.5*(N - \
                 asrtn.votes_for_winner - asrtn.votes_for_loser))/N
 
             est = sample_size(2*amean-1, args, N, nnm)
             raire_est = max(est, raire_est)
+
+            raire_assertions.append((asrtn, est))
             
         if raire_est >= N:
             max_cost = "Full Recount"
@@ -199,9 +202,21 @@ if __name__ == "__main__":
                 est = sample_size(2*amean-1, args, N, nnm)
                 max_cost = max(est, max_cost)
 
+                simple_assertions.append((asrtn, est))
+
             if max_cost >= N:
                 max_cost = "Full Recount"
 
             print("{},contest {},simple audit,{},RAIRE,{}".format(args.input,\
                 contest.name, max_cost, raire_est))
+
+            print("Simple:")
+            for asrtn,est in simple_assertions:
+                print("{}, {}".format(asrtn.to_str(), est))
+            print("RAIRE:")
+            for asrtn,est in raire_assertions:
+                print("{}, {}".format(asrtn.to_str(), est))
+
+
+        
                  

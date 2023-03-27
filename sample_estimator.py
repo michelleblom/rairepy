@@ -58,8 +58,8 @@ def cp_estimate(winner, loser, other, total):
 
 def get_default_test(tot_ballots, polling=False):
     return NonnegMean(test=NonnegMean.kaplan_kolmogorov, \
-        estim=NonnegMean.optimal_comparison, N=tot_ballots, t=0.5, g=0.1) if \
+        estim=NonnegMean.shrink_trunc, N=tot_ballots, t=0.5, g=0.1) if \
         polling else NonnegMean(test=NonnegMean.kaplan_kolmogorov, \
-        estim=NonnegMean.shrink_trunc, N=tot_ballots, t=0.5, g=0.1)
+        estim=NonnegMean.optimal_comparison, N=tot_ballots, t=0.5, g=0.1)
 
 
