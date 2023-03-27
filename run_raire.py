@@ -64,7 +64,7 @@ for contest in contests:
     if audit == []:
         print(f"File {args.input}, Contest {contest.name}, No audit possible")
     else:
-        test = get_default_test(N)
+        test = get_default_test(N, polling=args.bp)
 
         for asrt in audit:
             est = None

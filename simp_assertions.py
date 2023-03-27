@@ -16,8 +16,7 @@
 from raire_utils import NENAssertion, NEBAssertion, Contest, vote_for_cand,\
     ranking, load_contests_from_raire
 
-from sample_estimator import cp_estimate, sample_size
-
+from sample_estimator import *
 from raire import compute_raire_assertions
 
 import sys
@@ -117,7 +116,7 @@ def simple_IRV_assertions(contest, cvrs, winner, runner_up):
 
 def sim_irv(contest, cvrs):
     standing = [c for c in contest.candidates]
-
+    ballots = [b[contest.name] for _,b in cvrs.items() if contest.name in b]
     tallies = {c : 0 for c in contest.candidates}
 
     eliminated = []
@@ -168,8 +167,7 @@ if __name__ == "__main__":
         N = contest.tot_ballots
 
         # Create test for estimating sample sizes (use default settings)
-        nnm = NonnegMean(test=NonnegMean.kaplan_kolmogorov, \
-            estim=NonnegMean.optimal_comparison, N=N, t=0.5, g=0.1)
+        nnm = get_default_test(N)
 
         assertions, failures = simple_IRV_assertions(contest, cvrs, winner, \
             runner_up)
