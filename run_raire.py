@@ -51,6 +51,7 @@ contests, cvrs = load_contests_from_raire(args.input)
 
 est_fn = bp_estimate if args.bp else cp_estimate
 
+np.seterr(all="ignore")
 
 for contest in contests:
     audit = compute_raire_assertions(contest, cvrs, contest.winner, 
@@ -60,7 +61,7 @@ for contest in contests:
 
     max_est = 0
 
-    if asrtns == []:
+    if audit == []:
         print(f"File {args.input}, Contest {contest.name}, No audit possible")
     else:
         test = get_default_test(N)
@@ -71,13 +72,16 @@ for contest in contests:
             if args.evaluate:
                 amean = (asrt.votes_for_winner + 0.5*tally_other)/N
                 amargin = 2*amean - 1
-                est = sample_size(amargin, args, N, test)
+                est = sample_size(amargin, args, N, test, polling=args.bp)
 
             elif args.bp:  
-                est = bp_estimate(asrt.votes_for_winner,asrt.votes_for_loser,N)
+                est = bp_estimate(asrt.votes_for_winner,asrt.votes_for_loser,\
+                    tally_other, N)
             else:
                 est = cp_estimate(asrt.votes_for_winner,asrt.votes_for_loser,\
                     tally_other, N)
+
+            est = min(est, N) # Cut off at a full recount
 
             max_est = max(max_est, est)
 

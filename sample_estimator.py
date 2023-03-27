@@ -20,14 +20,12 @@ import math
 from shangrla.NonnegMean import NonnegMean
 
 
-def sample_size(margin, args, N, test, upper_bound=1):
+def sample_size(margin, args, N, test, upper_bound=1, polling=False):
     # over: (1 - o/u)/(2 - v/u)
     # where o is the overstatement, u is the upper bound on the value
     # assorter assigns to any ballot, v is the assorter margin.
-    big = 1.0/(2-margin/upper_bound) # o=0
-    small = 0.5/(2-margin/upper_bound) # o=0.5
-
-    samples = [0]*reps
+    big = 1 if polling else 1.0/(2-margin/upper_bound) # o=0
+    small = 0 if polling else 0.5/(2-margin/upper_bound) # o=0.5
 
     r1 = args.erate1
     r2 = args.erate2

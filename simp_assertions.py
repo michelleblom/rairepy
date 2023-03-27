@@ -16,40 +16,13 @@
 from raire_utils import NENAssertion, NEBAssertion, Contest, vote_for_cand,\
     ranking, load_contests_from_raire
 
-from sample_estimator import cp_estimate
+from sample_estimator import cp_estimate, sample_size
 
 from raire import compute_raire_assertions
 
 import sys
 import argparse
 import numpy as np
-
-
-# Make sure shangrla is in your PYTHONPATH
-from shangrla.NonnegMean import NonnegMean
-
-def sample_size(margin, args, N, test, upper_bound=1, reps=2000):
-    # over: (1 - o/u)/(2 - v/u)
-    # where o is the overstatement, u is the upper bound on the value
-    # assorter assigns to any ballot, v is the assorter margin.
-    big = 1.0/(2-margin/upper_bound) # o=0
-    small = 0.5/(2-margin/upper_bound) # o=0.5
-
-    samples = [0]*reps
-
-    r1 = args.erate1
-    r2 = args.erate2
-
-    x = big*np.ones(N)
-    rate_1_i = np.arange(0, N, step=int(1/r1), dtype=int) if r1 else []
-    rate_2_i = np.arange(0, N, step=int(1/r2), dtype=int) if r2 else []
-
-    x[rate_1_i] = small
-    x[rate_2_i] = 0
-
-    return test.sample_size(x, alpha=args.rlimit, reps=reps, seed=args.seed,\
-       random_order=False, t=0.5, g=0.1)
-
 
 def simple_IRV_assertions(contest, cvrs, winner, runner_up):
     """
@@ -146,7 +119,6 @@ def sim_irv(contest, cvrs):
     standing = [c for c in contest.candidates]
 
     tallies = {c : 0 for c in contest.candidates}
-    ballots = [b[contest.name] for _,b in cvrs.items() if contest.name in b]
 
     eliminated = []
 
@@ -169,7 +141,7 @@ def sim_irv(contest, cvrs):
         eliminated.append(toelim)
         standing.remove(toelim)
 
-    return standing[0], eliminated[-1], len(ballots)
+    return standing[0], eliminated[-1] 
         
 
 if __name__ == "__main__":    
@@ -191,7 +163,7 @@ if __name__ == "__main__":
     np.seterr(all="ignore")
 
     for contest in contests:
-        winner, runner_up, _ = sim_irv(contest, cvrs)
+        winner, runner_up  = sim_irv(contest, cvrs)
 
         N = contest.tot_ballots
 
