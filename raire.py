@@ -99,6 +99,7 @@ def compute_raire_assertions(
 
             if tally_c > tally_d:
                 asrn.difficulty = asn_func(tally_c, tally_d, \
+                    contest.tot_ballots - (tally_c + tally_d), \
                     contest.tot_ballots)
 
                 asrn.votes_for_winner = tally_c

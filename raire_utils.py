@@ -686,6 +686,7 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
             # eliminated, because "later_cand" actually has less votes
             # at this point.
             estimate = asn_func(tally_first_in_tail, tally_later_cand, \
+                contest.tot_ballots - (tally_first_in_tail + tally_later_cand),\
                 contest.tot_ballots)
 
             if best_asrtn is None or estimate < best_asrtn.difficulty:
