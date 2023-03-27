@@ -187,7 +187,7 @@ if __name__ == "__main__":
             raire_assertions.append((asrtn, est))
             
         if raire_est >= N:
-            max_cost = "Full Recount"
+            raire_est = "Full Recount"
 
         if failures != []:
             print("{},contest {}, no simple audit,, RAIRE,{}".format(\
