@@ -49,36 +49,24 @@ def simple_IRV_assertions(contest, cvrs, winner, runner_up):
 
 
     # 2. 'winner' NEB any candidate in others
-    # 3. 'runner_up' NEB any candidate in others
     min_w_2 = 0
-    min_r_3 = 0
     max_c_w_2 = {o : 0 for o in others}
-    max_c_r_3 = {o : 0 for o in others}
     
     for blt in ballots:
         w_tally_1 += vote_for_cand(winner, others, blt)
         r_tally_1 += vote_for_cand(runner_up, others, blt)
 
         widx = ranking(winner, blt)
-        ridx = ranking(runner_up, blt)
 
         if widx == 0:
             min_w_2 += 1
 
-        elif ridx == 0:
-            min_r_3 += 1
+        else: 
+            for c in others:
+                cidx = ranking(c, blt)
 
-        
-        for c in others:
-            cidx = ranking(c, blt)
-
-            if cidx != -1 and (widx == -1 or cidx < widx):
-                max_c_w_2[c] += 1
-
-            if cidx != -1 and (ridx == -1 or cidx < ridx):
-                max_c_r_3[c] += 1
-
-
+                if cidx != -1 and (widx == -1 or cidx < widx):
+                    max_c_w_2[c] += 1
 
     if w_tally_1 > r_tally_1:
         nen = NENAssertion(cname, winner, runner_up, others)
@@ -101,16 +89,6 @@ def simple_IRV_assertions(contest, cvrs, winner, runner_up):
         else:
             failed_to_assert.append("{} NEB {}".format(winner, c))
 
-        if min_r_3 > max_c_r_3[c]:     
-            neb = NEBAssertion(cname, runner_up, c)
-            neb.votes_for_winner = min_r_3
-            neb.votes_for_loser = max_c_r_3[c]
-
-            assertions.append(neb)
-        else:
-            failed_to_assert.append("{} NEB {}".format(runner_up, c))
-            
-   
     return assertions, failed_to_assert 
 
 
@@ -189,10 +167,8 @@ if __name__ == "__main__":
         if raire_est >= N:
             raire_est = "Full Recount"
 
-        if failures != []:
-            print("{},contest {}, no simple audit,, RAIRE,{}".format(\
-                args.input, contest.name, raire_est))
-        else:
+        max_cost = "Full Recount"
+        if failures == []:
             max_cost = 0
             simple_assertions = []
             for asrtn in assertions:
@@ -207,12 +183,15 @@ if __name__ == "__main__":
             if max_cost >= N:
                 max_cost = "Full Recount"
 
-            print("{},contest {},simple audit,{},RAIRE,{}".format(args.input,\
-                contest.name, max_cost, raire_est))
+        print("{},contest {},simple audit,{},RAIRE,{}".format(args.input,\
+            contest.name, max_cost, raire_est))
 
+        if failures == [] and max_cost != "Full Recount":
             print("Simple:")
             for asrtn,est in simple_assertions:
                 print("{}, {}".format(asrtn.to_str(), est))
+
+        if raire_est != "Full Recount":
             print("RAIRE:")
             for asrtn,est in raire_assertions:
                 print("{}, {}".format(asrtn.to_str(), est))
