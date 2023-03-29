@@ -131,6 +131,7 @@ if __name__ == "__main__":
     parser.add_argument('-seed', dest='seed', type=int, default=1234567)
     parser.add_argument('-reps', dest='reps', type=int, default=100)
     parser.add_argument('-agap', dest='agap', type=float, default=0)
+    parser.add_argument('-bp', dest='bp', action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -145,24 +146,26 @@ if __name__ == "__main__":
         N = contest.tot_ballots
 
         # Create test for estimating sample sizes (use default settings)
-        nnm = get_default_test(N)
-
         assertions, failures = simple_IRV_assertions(contest, cvrs, winner, \
             runner_up)
 
         raire_audit = compute_raire_assertions(contest, cvrs, winner, 
-            cp_estimate, False, agap=args.agap)
+            bp_estimate if args.bp else cp_estimate, False, agap=args.agap)
 
         raire_est = 0
         raire_assertions = []
         for asrtn in raire_audit:
-            amean = (asrtn.votes_for_winner + 0.5*(N - \
-                asrtn.votes_for_winner - asrtn.votes_for_loser))/N
+            tother = N - asrtn.votes_for_winner - asrtn.votes_for_loser
 
-            est = sample_size(2*amean-1, args, N, nnm)
+            amean = (asrtn.votes_for_winner + 0.5*tother)/N
+
+            est = sample_size(amean, asrtn.votes_for_winner, \
+                asrtn.votes_for_loser, tother, args, N, polling=args.bp)
+
             raire_est = max(est, raire_est)
 
-            raire_assertions.append((asrtn, est))
+            raire_assertions.append((asrtn, 2*amean-1, asrtn.votes_for_winner,\
+                asrtn.votes_for_loser, tother, est))
             
         if raire_est >= N:
             raire_est = "Full Recount"
@@ -172,13 +175,17 @@ if __name__ == "__main__":
             max_cost = 0
             simple_assertions = []
             for asrtn in assertions:
-                amean = (asrtn.votes_for_winner + 0.5*(N - \
-                    asrtn.votes_for_winner-asrtn.votes_for_loser))/N
+                tother = N - asrtn.votes_for_winner - asrtn.votes_for_loser
 
-                est = sample_size(2*amean-1, args, N, nnm)
+                amean = (asrtn.votes_for_winner + 0.5*tother)/N
+
+                est = sample_size(amean, asrtn.votes_for_winner, \
+                    asrtn.votes_for_loser, tother, args, N, polling=args.bp)
+
                 max_cost = max(est, max_cost)
 
-                simple_assertions.append((asrtn, est))
+                simple_assertions.append((asrtn, 2*amean-1, \
+                    asrtn.votes_for_winner, asrtn.votes_for_loser,tother,est))
 
             if max_cost >= N:
                 max_cost = "Full Recount"
@@ -188,13 +195,15 @@ if __name__ == "__main__":
 
         if failures == [] and max_cost != "Full Recount":
             print("Simple:")
-            for asrtn,est in simple_assertions:
-                print("{}, {}".format(asrtn.to_str(), est))
+            for asrtn,margin,tw,tl,to,est in simple_assertions:
+                print("{}, margin {} ({},{},{}), ASN {}".format(asrtn.to_str(),\
+                     margin, tw, tl, to, est))
 
         if raire_est != "Full Recount":
             print("RAIRE:")
-            for asrtn,est in raire_assertions:
-                print("{}, {}".format(asrtn.to_str(), est))
+            for asrtn,margin,tw,tl,to,est in raire_assertions:
+                print("{}, margin {} ({},{},{}), ASN {}".format(asrtn.to_str(),\
+                     margin, tw, tl, to, est))
 
 
         
