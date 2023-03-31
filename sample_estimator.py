@@ -29,7 +29,7 @@ def sample_size(mean, tw, tl, to, args, N, upper_bound=1, polling=False):
     test = NonnegMean(test=NonnegMean.alpha_mart, \
         estim=NonnegMean.shrink_trunc, N=N, u=u, eta=mean) if \
         polling else NonnegMean(test=NonnegMean.alpha_mart, \
-        estim=NonnegMean.optimal_comparison, N=N, u=u,eta=mean)
+        estim=NonnegMean.optimal_comparison, N=N, u=u, eta=mean)
 
 
     # over: (1 - o/u)/(2 - v/u)
@@ -58,7 +58,7 @@ def sample_size(mean, tw, tl, to, args, N, upper_bound=1, polling=False):
         x[rate_2_i] = 0
 
     return test.sample_size(x, alpha=args.rlimit, reps=args.reps, \
-        seed=args.seed, random_order=True, t=0.5, g=0.1)
+        seed=args.seed, random_order=True)
 
 
 def bp_estimate(winner, loser, other, total):
