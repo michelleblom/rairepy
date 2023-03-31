@@ -23,18 +23,21 @@ from shangrla.Audit import Assertion
 
 def sample_size(mean, tw, tl, to, args, N, upper_bound=1, polling=False):
 
-    test = NonnegMean(test=NonnegMean.alpha_mart, \
-        estim=NonnegMean.shrink_trunc, N=N, eta=mean) if \
-        polling else NonnegMean(test=NonnegMean.alpha_mart, \
-        estim=NonnegMean.optimal_comparison, N=N, eta=mean)
-
     margin = 2*mean - 1
+    u = 2/(2-(margin/upper_bound))
+
+    test = NonnegMean(test=NonnegMean.alpha_mart, \
+        estim=NonnegMean.shrink_trunc, N=N, u=u, eta=mean) if \
+        polling else NonnegMean(test=NonnegMean.alpha_mart, \
+        estim=NonnegMean.optimal_comparison, N=N, u=u,eta=mean)
+
 
     # over: (1 - o/u)/(2 - v/u)
+
     # where o is the overstatement, u is the upper bound on the value
     # assorter assigns to any ballot, v is the assorter margin.
-    big = 1 if polling else 1.0/(2-margin/upper_bound) # o=0
-    small = 0 if polling else 0.5/(2-margin/upper_bound) # o=0.5
+    big = 1 if polling else (1 / (2 - margin/upper_bound)) # o=0
+    small = 0 if polling else (0.5 / (2 - margin/upper_bound)) # o=0.5
 
     r1 = args.erate1
     r2 = args.erate2
@@ -55,9 +58,8 @@ def sample_size(mean, tw, tl, to, args, N, upper_bound=1, polling=False):
         x[rate_2_i] = 0
 
     return test.sample_size(x, alpha=args.rlimit, reps=args.reps, \
-        seed=args.seed, random_order=False, t=0.5, g=0.1)
+        seed=args.seed, random_order=True, t=0.5, g=0.1)
 
-# 60% 1s, small test with assorter margin of around 0.2
 
 def bp_estimate(winner, loser, other, total):
     p = (winner+loser)/total
