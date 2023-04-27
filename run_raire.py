@@ -28,13 +28,12 @@ import math
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', dest='input', required=True)
 parser.add_argument('-bp', dest='bp', action='store_true')
-parser.add_argument('-e', dest='evaluate', action='store_true')
 parser.add_argument('-v', dest='verbose', action='store_true')
 
 parser.add_argument('-agap', dest='agap', type=float, default=0)
 
 # Used for estimating sample size for assertions if desired.
-parser.add_argument('-r', dest='rlimit', type=float, default=0.05)
+parser.add_argument('-r', dest='rlimit', type=float, default=0.10)
 
 # Used when estimating sample size given non zero error rate for comparison
 # audits. No sample size estimator in sample_estimator.py for ballot polling
@@ -64,22 +63,13 @@ for contest in contests:
     if audit == []:
         print(f"File {args.input}, Contest {contest.name}, No audit possible")
     else:
-        test = get_default_test(N, polling=args.bp)
 
         for asrt in audit:
             est = None
             tally_other = N - asrt.votes_for_winner - asrt.votes_for_loser
-            if args.evaluate:
-                amean = (asrt.votes_for_winner + 0.5*tally_other)/N
-                amargin = 2*amean - 1
-                est = sample_size(amargin, args, N, test, polling=args.bp)
-
-            elif args.bp:  
-                est = bp_estimate(asrt.votes_for_winner,asrt.votes_for_loser,\
-                    tally_other, N)
-            else:
-                est = cp_estimate(asrt.votes_for_winner,asrt.votes_for_loser,\
-                    tally_other, N)
+            amean = (asrt.votes_for_winner + 0.5*tally_other)/N
+            est = sample_size(amean, asrt.votes_for_winner, \
+                asrt.votes_for_loser, tally_other, args, N, polling=args.bp)
 
             est = min(est, N) # Cut off at a full recount
 
