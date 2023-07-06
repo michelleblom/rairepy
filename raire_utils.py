@@ -384,16 +384,14 @@ class NEBAssertion(RaireAssertion):
         if self.winner == other.winner and self.loser == other.loser:
             return True
 
-        if other.rules_out != None:                      
-            # If self.winner appears before self.loser in the list
-            # 'other.rules_out', or self.loser appears and self.winner does 
-            # not, then this assertion subsumes 'other'.
-            idx_winner = index_of(self.winner, other.rules_out)
-            idx_loser = index_of(self.loser, other.rules_out)
+        if self.winner == other.winner and \
+            not(self.loser in other.eliminated):
+            return True
 
-            if idx_winner < idx_loser:
-                return True 
-
+        elif self.winner in other.eliminated and not(self.loser in \
+            other.eliminated):
+            return True
+          
         return False
 
     def to_str(self):
@@ -445,15 +443,16 @@ class NENAssertion(RaireAssertion):
     def subsumes(self, other):
         '''
         An NENAssertion 'A' subsumes an assertion 'other' if 'other' is 
-        not an NEBAssertion, they have the same winner, and rule out
-        Tail sequences that contain same set of candidates. 
+        not an NEBAssertion, they have the same winner, and assume the same
+        candidates are eliminated.
+         
         '''
 
         if type(other) == NEBAssertion:
             return False
 
         if self.winner == other.winner and \
-            set(self.rules_out) == set(other.rules_out):
+            set(self.eliminated) == set(other.eliminated):
             return True
 
         return False
