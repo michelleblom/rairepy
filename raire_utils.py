@@ -491,6 +491,15 @@ class RaireNode:
         # represents.
         self.estimate = np.inf
 
+        # Record of the children of this node that have already been
+        # considered (for example, through diving). These children are
+        # represented by the candidate that was added to the front of
+        # self.tail when the child was created.
+        self.explored = []
+
+        # Flag to indicate if node was created as part of a dive.
+        self.dive_node = False
+
     def is_descendent_of(self, node):
         '''
         Determines if the given 'node' is an ancestor of this node in a
@@ -706,11 +715,92 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
         node.estimate = best_asrtn.difficulty
 
 
-def perform_dive(node, contest, ballots, neb_matrix, asn_func):
+def manage_node(newn, frontier, lowerbound, log, stream=sys.stdout):
+
+    '''
+    Input:
+
+    newn: RaireNode    -  A node in the tree of alternate election outcomes that
+                          has just been created and evaluated, but not yet
+                          added to our frontier. We need to determine what this
+                          node's evaluation means for our frontier.
+
+    frontier           -  Current frontier of our set of alternate outcome
+                          trees.
+
+    lowerbound         -  Current lower bound on audit difficulty.
+
+    log                -  Flag indicating if logging statements should
+                          be printed during the algorithm.
+
+    stream             -  Stream to which logging statements should
+                          be printed.
+
+
+    Output:
+
+    Returns a triple:
+        audit_not_possible (Boolean), new lower bound, terminus (Boolean)
+
+    The first element of this triple is a boolean indicating whether or not
+    we have established that the audit is not possible. If so, this boolean
+    will be True, otherwise it will be False.
+
+    The second element indicates the new lower bound on audit difficulty
+    as a result of the node's evaluation (note it may not have changed from
+    the prior lower bound).
+
+    The third element indicates whether or not we will need to continue
+    exploring children of this node. The boolean 'terminus' will be set to
+    True if we do not need to continue to explore children of this node, and 
+    False otherwise.
+
+    '''
+
+    if not newn.expandable:
+        # 'newn' is a leaf.
+        if newn.estimate == np.inf and newn.best_ancestor.estimate == np.inf:
+
+            if log:
+                print("Found branch that cannot be pruned.", file=stream)
+            
+            return True, np.inf, True
+
+        if newn.best_ancestor.estimate <= newn.estimate:
+            next_lowerbound = max(lowerbound, newn.best_ancestor.estimate)
+            frontier.replace_descendents(newn.best_ancestor,log,stream=stream)
+
+            return False, next_lowerbound, True
+
+        else:
+            next_lowerbound = max(lowerbound, newn.estimate)
+            frontier.insert_node(newn)
+
+            if log:
+                print("    Best audit ", file=stream, end='')
+                newn.best_assertion.display(stream=stream)
+            
+            return False, next_lowerbound, True
+    else:
+        frontier.insert_node(newn)
+
+        if log:
+            if newn.best_assertion != None:
+                print("    Best audit ", file=stream, end='')
+                newn.best_assertion.display(stream=stream)
+            else:
+                print("    Cannot be disproved", file=stream)
+
+        return False, lowerbound, False
+
+
+def perform_dive(node, contest, ballots, neb_matrix, asn_func, lower_bound, \
+    frontier, log, stream=sys.stdout):
+
     '''
     Input:
     node: RaireNode    -  A node in the tree of alternate election outcomes.
-                         Starting point of dive to a leaf.
+                          Starting point of dive to a leaf.
 
     contest: Contest   -  Contest being audited.
 
@@ -725,10 +815,24 @@ def perform_dive(node, contest, ballots, neb_matrix, asn_func):
                           returns an estimate of how "difficult" it will
                           be to audit that assertion.
 
+    lower_bound        -  Current lower bound on audit difficulty.
+
+    frontier           -  Current frontier of our set of alternate outcome
+                          trees.
+
+    log                -  Flag indicating if logging statements should
+                          be printed during the algorithm.
+
+    stream             -  Stream to which logging statements should
+                          be printed.
+
+
     Output:
     Returns the difficulty estimate of the least-difficult-to-audit 
     assertion that can be used to rule out at least one of the branches
-    starting at the input 'node'.  
+    starting at the input 'node'. As this function dives from the given 'node'
+    it will add nodes to the current frontier of our set of alternate outcome
+    trees.
     '''
 
     ncands = len(contest.candidates)
@@ -750,6 +854,9 @@ def perform_dive(node, contest, ballots, neb_matrix, asn_func):
 
     newn = RaireNode([next_cand] + node.tail)
     newn.expandable = False if len(newn.tail) == ncands else True
+    newn.dive_node = True
+
+    node.explored.append(next_cand)
 
     # Assign a 'best ancestor' to the new node. 
     newn.best_ancestor = node.best_ancestor if \
@@ -758,13 +865,18 @@ def perform_dive(node, contest, ballots, neb_matrix, asn_func):
 
     find_best_audit(contest, ballots, neb_matrix, newn, asn_func)
 
-    if not newn.expandable:
-        if newn.estimate == np.inf and newn.best_ancestor.estimate == np.inf:
-            # Audit is not possible: We have found a leaf and cannot
-            # form an assertion to rule out it or any of its ancestors.
-            return np.inf
+    if log:
+        print("DIVE TESTED ", file=stream, end='')
+        newn.display(stream=stream)
 
-        return min(newn.estimate, newn.best_ancestor.estimate)
+    audit_not_possible, next_lowerbound, dive_complete = manage_node(newn, \
+        frontier, lower_bound, log, stream=stream)
 
-    else:
-        return perform_dive(newn, contest, ballots, neb_matrix, asn_func)
+    if audit_not_possible:
+        return np.inf
+
+    if dive_complete:
+        return next_lowerbound
+
+    return perform_dive(newn, contest, ballots, neb_matrix, asn_func, \
+            next_lowerbound, frontier, log, stream=stream)
