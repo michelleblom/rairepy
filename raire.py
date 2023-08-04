@@ -275,63 +275,54 @@ def compute_raire_assertions(
         return []
 
     # ------------------------------------------------------------------------
-    assertions = []
-
     # Some assertions will be used to rule out multiple branches of our
     # alternate outcome tree. Form a list of all these assertions, without
     # duplicates.
+    assertions = []
+
     for node in frontier.nodes:
         skip = False
         for assrtn in assertions:
             if node.best_assertion.same_as(assrtn):
+                assrtn.rules_out.update(node.best_assertion.rules_out)
                 skip = True
                 break
 
         if not skip:
             assertions.append(node.best_assertion)
 
-    # Assertions will be sorted in order of greatest to least difficulty.
+    # Assertions will be sorted in order of how much of the alternate
+    # outcome space they rule out (most to least).
     sorted_assertions = sorted(assertions)    
     len_assertions = len(sorted_assertions)
 
     final_audit = []
 
-    # Some assertions will "subsume" others. For example, an assertion
-    # that says "Candidate A cannot be eliminated before candidate B" will
-    # subsume all NEN assertions that say A is not eliminated next when B
-    # is still standing. What this means is that if the NEB assertion holds,
-    # the NEN assertion will hold, so there is no need to check both of them.  
-    for i in range(len_assertions):
-        assrtn_i = sorted_assertions[i]
+    if sorted_assertions != []:
+        final_audit = [sorted_assertions.pop(0)]
 
-        subsumed = False
-        for j in range(len_assertions):
+        for assertion in sorted_assertions:
+            subsumed = False
+            for fasrtn in final_audit:
+                if fasrtn.subsumes(assertion):
+                    fasrtn.rules_out.update(assertion.rules_out) 
+                    if log:
+                        print("{} SUBSUMES {}".format(fasrtn.to_str(),
+                            assertion.to_str()), file=stream)
 
-            if i == j: 
-                continue
+                    subsumed = True
+                    break
 
-            assrtn_j = sorted_assertions[j]
-            
-            if assrtn_j.subsumes(assrtn_i):
-                subsumed = True
+            if not subsumed:
+                final_audit.append(assertion)
 
-                if log:
-                    print("", file=stream)
-                    print("{} SUBSUMES {}".format(assrtn_j.to_str(),
-                        assrtn_i.to_str()), file=stream)
-                    print("", file=stream)
-                    
-                break
 
-        if not subsumed:
-            final_audit.append(assrtn_i)
-
-    #if log:
-    print("===============================================", file=stream)
-    print("ASSERTIONS:", file=stream)
-    for assertion in final_audit:
-        assertion.display(stream=stream)
-    print("===============================================", file=stream)
+    if log:
+        print("===============================================", file=stream)
+        print("ASSERTIONS:", file=stream)
+        for assertion in final_audit:
+            assertion.display(stream=stream)
+        print("===============================================", file=stream)
         
     return final_audit  
 

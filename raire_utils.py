@@ -269,7 +269,7 @@ class RaireAssertion:
         self.margin = -1
         self.difficulty = np.inf
 
-        self.rules_out = None
+        self.rules_out = set()
 
     def is_vote_for_winner(self, cvr):
         """
@@ -315,12 +315,25 @@ class RaireAssertion:
         '''
         pass
 
-    # Assertions are ordered from greatest to least difficulty.
+    # Assertions are ordered in terms of how many alternate outcomes that
+    # they are able to rule out. 
     def __lt__(self, other):
-        return self.difficulty > other.difficulty
+        self_rule_out = -1 if not self.rules_out else \
+            min([len(ro) for ro in self.rules_out])
+
+        other_rule_out = -1 if not other.rules_out else \
+            min([len(ro) for ro in other.rules_out])
+
+        return self_rule_out < other_rule_out
 
     def __gt__(self, other):
-        return self.difficulty < other.difficulty
+        self_rule_out = -1 if not self.rules_out else \
+            min([len(ro) for ro in self.rules_out])
+
+        other_rule_out = -1 if not other.rules_out else \
+            min([len(ro) for ro in other.rules_out])
+
+        return self_rule_out > other_rule_out
     
     def display(self, stream=sys.stdout):
         print(self.to_str(), file=stream)
@@ -384,20 +397,45 @@ class NEBAssertion(RaireAssertion):
         if self.winner == other.winner and self.loser == other.loser:
             return True
 
-        if self.winner == other.winner and \
-            not(self.loser in other.eliminated):
+        if self.winner == other.winner and not(self.loser in \
+            other.eliminated):
             return True
 
         elif self.winner in other.eliminated and not(self.loser in \
             other.eliminated):
             return True
           
+        else:
+            # For all outcomes that 'other' is ruling out, this NEB
+            # rules them all out.
+            for ro in other.rules_out:
+                idxw = -1 if not self.winner in ro else ro.index(self.winner)
+                idxl = -1 if not self.loser in ro else ro.index(self.loser)
+
+                if idxw == idxl or (idxl < idxw):
+                    return False
+
+            return True
+                    
         return False
 
     def to_str(self):
-        return "NEB,Winner,{},Loser,{},Eliminated".format(self.winner,
-            self.loser)
+        return "NEB,Winner,{},Loser,{},diff est {}".format(self.winner,
+            self.loser, self.difficulty)
 
+
+def is_suffix(lista, listb):
+    """
+        Returns true if listb = some_list + lista
+    """
+
+    len_lista = len(lista)
+    len_listb = len(listb)
+
+    if len_listb < len_lista:
+        return False
+
+    return listb[len_listb-len_lista:] == lista
 
 
 class NENAssertion(RaireAssertion):
@@ -438,24 +476,25 @@ class NENAssertion(RaireAssertion):
         return self.contest == other.contest \
             and self.winner == other.winner \
             and self.loser == other.loser \
-            and self.eliminated == other.eliminated
+            and self.eliminated == other.eliminated 
 
     def subsumes(self, other):
         '''
         An NENAssertion 'A' subsumes an assertion 'other' if 'other' is 
-        not an NEBAssertion, they have the same winner, and assume the same
-        candidates are eliminated.
-         
+        not an NEBAssertion, the outcomes that 'A' rules out are suffixes of 
+        the outcomes that 'B' rules out.
         '''
 
         if type(other) == NEBAssertion:
             return False
 
-        if self.winner == other.winner and \
-            set(self.eliminated) == set(other.eliminated):
-            return True
+        other_ro = set(other.rules_out)
 
-        return False
+        for ro in self.rules_out:
+            other_ro = [o for o in other_ro if not(is_suffix(ro, o))]
+               
+        return other_ro == [] 
+
     
     def to_str(self):
         result = "NEN,Winner,{},Loser,{},Eliminated".format(self.winner,
@@ -464,6 +503,8 @@ class NENAssertion(RaireAssertion):
         for cand in self.eliminated:
             result += ",{}".format(cand)
 
+        result += ",diff est {}, rules out: {}".format(self.difficulty,\
+            self.rules_out)
         return result
             
 
@@ -701,7 +742,7 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
                 nen = NENAssertion(contest, first_in_tail, later_cand, \
                     eliminated)
 
-                nen.rules_out = node.tail
+                nen.rules_out.add(tuple(node.tail))
                 nen.difficulty = estimate
 
                 nen.votes_for_winner = tally_first_in_tail
