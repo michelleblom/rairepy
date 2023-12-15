@@ -207,6 +207,19 @@ def ranking(cand, ballot):
 
     return ballot[cand]
 
+def ballot_value(ballot):
+    '''
+    Input:
+        ballot         -   mapping between candidate name and their 
+                           position in the ranking for a relevant contest
+                           on a given ballot, in addition to value of ballot.
+
+    Output:
+        Value of ballot.
+      
+    '''
+    return ballot['value']
+
 
 def vote_for_cand(cand, eliminated, ballot):
     '''
@@ -254,17 +267,13 @@ class RaireAssertion:
         Each assertion will have an estimated 'difficulty' related to
         the anticipated number of ballot checks required to audit it.
 
-        Each assertion will have a margin defined as the difference in 
-        tallies ascribed to 'winner' and 'loser'
+        Each assertion will have an assorter margin.
         """
 
         self.contest = contest_name
 
         self.winner = winner
         self.loser = loser
-
-        self.votes_for_winner = 0
-        self.votes_for_loser = 0
 
         self.margin = -1
         self.difficulty = np.inf
@@ -721,22 +730,25 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
     # remain, 'first_in_tail' is not the candidate with the least number
     # of votes. This means that 'first_in_tail' should not be eliminated next.
 
-    # Tally of the candidate 'first_in_tail'
-    tally_first_in_tail = sum([vote_for_cand(first_in_tail, \
-        eliminated, blt) for blt in ballots])
-
     for later_cand in node.tail[1:]:
-        tally_later_cand =  sum([vote_for_cand(later_cand, \
-            eliminated, blt) for blt in ballots])
+        assorter = 0
+        for blt in ballots:
+            bval = ballot_value(blt)
+            if vote_for_cand(first_in_tail, eliminated, blt):
+                assorter += (bval+1)/2
+            elif vote_for_cand(later_cand, eliminated, blt):
+                assorter += (-bal+1)/2
+            else:
+                assorter += 0.5
 
-        if  tally_first_in_tail > tally_later_cand:
+        assorter /= contest.tot_ballots
+    
+        if  assorter > 0.5:
             # We can create a NEN assertion that says "first_in_cand"
             # should not be eliminated next, after "eliminated" are
             # eliminated, because "later_cand" actually has less votes
             # at this point.
-            estimate = asn_func(tally_first_in_tail, tally_later_cand, \
-                contest.tot_ballots - (tally_first_in_tail + tally_later_cand),\
-                contest.tot_ballots)
+            estimate = asn_func(assorter, contest.tot_ballots)
 
             if best_asrtn is None or estimate < best_asrtn.difficulty:
                 nen = NENAssertion(contest, first_in_tail, later_cand, \
@@ -744,9 +756,7 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
 
                 nen.rules_out.add(tuple(node.tail))
                 nen.difficulty = estimate
-
-                nen.votes_for_winner = tally_first_in_tail
-                nen.votes_for_loser = tally_later_cand
+                nen.margin = assorter
 
                 best_asrtn = nen
 

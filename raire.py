@@ -15,7 +15,8 @@
 
 
 from raire_utils import NENAssertion, NEBAssertion, RaireAssertion, \
-    RaireFrontier, RaireNode, find_best_audit, perform_dive, manage_node, Contest
+    RaireFrontier, RaireNode, find_best_audit, perform_dive, manage_node, \
+    Contest, ballot_value
 
 import numpy as np
 import sys
@@ -40,14 +41,15 @@ def compute_raire_assertions(
                             'candidate3': 2,
                             'candidate4': 3,
                             ...
+                            'value':1.0 (Fractional value in range [0,1])
                         }
                     ...
                 }
 
         winner         - reported winner of the contest
 
-        asn_func       - function that takes three values as input: tally for 
-                         the winner of an assertion; the loser; and the total 
+        asn_func       - function that takes two values as input: 
+                         assorter margin for an assertion and the total 
                          number of auditable ballots. Returns an estimate of 
                          how difficult a RAIRE assertion with that margin will
                          be to audit.
@@ -91,20 +93,22 @@ def compute_raire_assertions(
 
             asrn = NEBAssertion(contest.name, c, d)
             
-            tally_c = 0
-            tally_d = 0
+            assorter = 0
             for _,r in cvrs.items():
-                tally_c += asrn.is_vote_for_winner(r)
-                tally_d += asrn.is_vote_for_loser(r)
+                bval = ballot_value(r[contest.name])
+                if asrn.is_vote_for_winner(r):
+                    assorter += (bval+1)/2
+                elif asrn.is_vote_for_loser(r):
+                    assorter += (-bval+1)/2
+                else:
+                    assorter += 0.5
 
-            if tally_c > tally_d:
-                asrn.difficulty = asn_func(tally_c, tally_d, \
-                    contest.tot_ballots - (tally_c + tally_d), \
+            assorter /= contest.tot_ballots    
+            if assorter > 0.5:
+                asrn.difficulty = asn_func(assorter, \
                     contest.tot_ballots)
 
-                asrn.votes_for_winner = tally_c
-                asrn.votes_for_loser = tally_d
-
+                asrn.margin = assorter
                 nebs[c][d] = asrn
 
 
