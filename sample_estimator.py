@@ -70,8 +70,7 @@ def bp_estimate(winner, loser, other, total):
     return 1.0/margin
 
 
-def cp_estimate(winner, loser, other, total):
-    amargin = 2*((winner+0.5*other)/total) - 1
+def cp_estimate(amargin):
 
     return 1.0/amargin
 

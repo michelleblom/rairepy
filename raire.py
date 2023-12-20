@@ -48,11 +48,9 @@ def compute_raire_assertions(
 
         winner         - reported winner of the contest
 
-        asn_func       - function that takes two values as input: 
-                         assorter margin for an assertion and the total 
-                         number of auditable ballots. Returns an estimate of 
-                         how difficult a RAIRE assertion with that margin will
-                         be to audit.
+        asn_func       - function that takes an assertion assorter margin
+                         and returns an estimate of how difficult a RAIRE 
+                         assertion with that margin will be to audit.
 
         log            - flag indicating if logging statements should
                          be printed during the algorithm.
@@ -105,8 +103,7 @@ def compute_raire_assertions(
 
             assorter /= contest.tot_ballots    
             if assorter > 0.5:
-                asrn.difficulty = asn_func(assorter, \
-                    contest.tot_ballots)
+                asrn.difficulty = asn_func(assorter)
 
                 asrn.margin = assorter
                 nebs[c][d] = asrn

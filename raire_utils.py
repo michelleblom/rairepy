@@ -737,7 +737,7 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
             if vote_for_cand(first_in_tail, eliminated, blt):
                 assorter += (bval+1)/2
             elif vote_for_cand(later_cand, eliminated, blt):
-                assorter += (-bal+1)/2
+                assorter += (-bval+1)/2
             else:
                 assorter += 0.5
 
@@ -748,7 +748,7 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
             # should not be eliminated next, after "eliminated" are
             # eliminated, because "later_cand" actually has less votes
             # at this point.
-            estimate = asn_func(assorter, contest.tot_ballots)
+            estimate = asn_func(assorter)
 
             if best_asrtn is None or estimate < best_asrtn.difficulty:
                 nen = NENAssertion(contest, first_in_tail, later_cand, \
@@ -862,7 +862,7 @@ def perform_dive(node, contest, ballots, neb_matrix, asn_func, lower_bound, \
                           that c1 cannot be eliminated before c2 (if one
                           exists) and None otherwise.
 
-    asn_func: Callable -  Function that takes an assertion margin and 
+    asn_func: Callable -  Function that takes an assertion assorter margin and 
                           returns an estimate of how "difficult" it will
                           be to audit that assertion.
 

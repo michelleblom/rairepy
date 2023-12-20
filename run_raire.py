@@ -27,7 +27,6 @@ import math
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', dest='input', required=True)
-parser.add_argument('-bp', dest='bp', action='store_true')
 parser.add_argument('-v', dest='verbose', action='store_true')
 
 parser.add_argument('-agap', dest='agap', type=float, default=0)
@@ -48,7 +47,7 @@ args = parser.parse_args()
 
 contests, cvrs = load_contests_from_raire(args.input)
 
-est_fn = bp_estimate if args.bp else cp_estimate
+est_fn = cp_estimate
 
 np.seterr(all="ignore")
 
@@ -65,11 +64,7 @@ for contest in contests:
     else:
 
         for asrt in audit:
-            est = None
-            tally_other = N - asrt.votes_for_winner - asrt.votes_for_loser
-            amean = (asrt.votes_for_winner + 0.5*tally_other)/N
-            est = sample_size(amean, asrt.votes_for_winner, \
-                asrt.votes_for_loser, tally_other, args, N, polling=args.bp)
+            est = sample_size(asrt.margin, None, None, None, args, N)
 
             est = min(est, N) # Cut off at a full recount
 
