@@ -138,7 +138,7 @@ def load_contests_from_raire(path):
             order = []
             if "order" in toks:
                 order = toks[windx+2:inf_index] if inf_index != None else \
-                    toks[widx+2:]
+                    toks[windx+2:]
             
             contest_info[cid] = (cands, winner, order)
             num_ballots[cid] = informal
@@ -269,7 +269,7 @@ class RaireAssertion:
         self.margin = -1
         self.difficulty = np.inf
 
-        self.rules_out = None
+        self.rules_out = set()
 
     def is_vote_for_winner(self, cvr):
         """
@@ -315,12 +315,25 @@ class RaireAssertion:
         '''
         pass
 
-    # Assertions are ordered from greatest to least difficulty.
+    # Assertions are ordered in terms of how many alternate outcomes that
+    # they are able to rule out. 
     def __lt__(self, other):
-        return self.difficulty > other.difficulty
+        self_rule_out = -1 if not self.rules_out else \
+            min([len(ro) for ro in self.rules_out])
+
+        other_rule_out = -1 if not other.rules_out else \
+            min([len(ro) for ro in other.rules_out])
+
+        return self_rule_out < other_rule_out
 
     def __gt__(self, other):
-        return self.difficulty < other.difficulty
+        self_rule_out = -1 if not self.rules_out else \
+            min([len(ro) for ro in self.rules_out])
+
+        other_rule_out = -1 if not other.rules_out else \
+            min([len(ro) for ro in other.rules_out])
+
+        return self_rule_out > other_rule_out
     
     def display(self, stream=sys.stdout):
         print(self.to_str(), file=stream)
@@ -384,22 +397,45 @@ class NEBAssertion(RaireAssertion):
         if self.winner == other.winner and self.loser == other.loser:
             return True
 
-        if other.rules_out != None:                      
-            # If self.winner appears before self.loser in the list
-            # 'other.rules_out', or self.loser appears and self.winner does 
-            # not, then this assertion subsumes 'other'.
-            idx_winner = index_of(self.winner, other.rules_out)
-            idx_loser = index_of(self.loser, other.rules_out)
+        if self.winner == other.winner and not(self.loser in \
+            other.eliminated):
+            return True
 
-            if idx_winner < idx_loser:
-                return True 
+        elif self.winner in other.eliminated and not(self.loser in \
+            other.eliminated):
+            return True
+          
+        else:
+            # For all outcomes that 'other' is ruling out, this NEB
+            # rules them all out.
+            for ro in other.rules_out:
+                idxw = -1 if not self.winner in ro else ro.index(self.winner)
+                idxl = -1 if not self.loser in ro else ro.index(self.loser)
 
+                if idxw == idxl or (idxl < idxw):
+                    return False
+
+            return True
+                    
         return False
 
     def to_str(self):
-        return "NEB,Winner,{},Loser,{},Eliminated".format(self.winner,
-            self.loser)
+        return "NEB,Winner,{},Loser,{},diff est {}".format(self.winner,
+            self.loser, self.difficulty)
 
+
+def is_suffix(lista, listb):
+    """
+        Returns true if listb = some_list + lista
+    """
+
+    len_lista = len(lista)
+    len_listb = len(listb)
+
+    if len_listb < len_lista:
+        return False
+
+    return listb[len_listb-len_lista:] == lista
 
 
 class NENAssertion(RaireAssertion):
@@ -440,23 +476,25 @@ class NENAssertion(RaireAssertion):
         return self.contest == other.contest \
             and self.winner == other.winner \
             and self.loser == other.loser \
-            and self.eliminated == other.eliminated
+            and self.eliminated == other.eliminated 
 
     def subsumes(self, other):
         '''
         An NENAssertion 'A' subsumes an assertion 'other' if 'other' is 
-        not an NEBAssertion, they have the same winner, and rule out
-        Tail sequences that contain same set of candidates. 
+        not an NEBAssertion, the outcomes that 'A' rules out are suffixes of 
+        the outcomes that 'B' rules out.
         '''
 
         if type(other) == NEBAssertion:
             return False
 
-        if self.winner == other.winner and \
-            set(self.rules_out) == set(other.rules_out):
-            return True
+        other_ro = set(other.rules_out)
 
-        return False
+        for ro in self.rules_out:
+            other_ro = [o for o in other_ro if not(is_suffix(ro, o))]
+               
+        return other_ro == [] 
+
     
     def to_str(self):
         result = "NEN,Winner,{},Loser,{},Eliminated".format(self.winner,
@@ -465,6 +503,8 @@ class NENAssertion(RaireAssertion):
         for cand in self.eliminated:
             result += ",{}".format(cand)
 
+        result += ",diff est {}, rules out: {}".format(self.difficulty,\
+            self.rules_out)
         return result
             
 
@@ -491,6 +531,15 @@ class RaireNode:
         # Estimate of difficulty of ruling out the outcome this node
         # represents.
         self.estimate = np.inf
+
+        # Record of the children of this node that have already been
+        # considered (for example, through diving). These children are
+        # represented by the candidate that was added to the front of
+        # self.tail when the child was created.
+        self.explored = []
+
+        # Flag to indicate if node was created as part of a dive.
+        self.dive_node = False
 
     def is_descendent_of(self, node):
         '''
@@ -686,13 +735,14 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
             # eliminated, because "later_cand" actually has less votes
             # at this point.
             estimate = asn_func(tally_first_in_tail, tally_later_cand, \
+                contest.tot_ballots - (tally_first_in_tail + tally_later_cand),\
                 contest.tot_ballots)
 
             if best_asrtn is None or estimate < best_asrtn.difficulty:
                 nen = NENAssertion(contest, first_in_tail, later_cand, \
                     eliminated)
 
-                nen.rules_out = node.tail
+                nen.rules_out.add(tuple(node.tail))
                 nen.difficulty = estimate
 
                 nen.votes_for_winner = tally_first_in_tail
@@ -706,11 +756,92 @@ def find_best_audit(contest, ballots, neb_matrix, node, asn_func) :
         node.estimate = best_asrtn.difficulty
 
 
-def perform_dive(node, contest, ballots, neb_matrix, asn_func):
+def manage_node(newn, frontier, lowerbound, log, stream=sys.stdout):
+
+    '''
+    Input:
+
+    newn: RaireNode    -  A node in the tree of alternate election outcomes that
+                          has just been created and evaluated, but not yet
+                          added to our frontier. We need to determine what this
+                          node's evaluation means for our frontier.
+
+    frontier           -  Current frontier of our set of alternate outcome
+                          trees.
+
+    lowerbound         -  Current lower bound on audit difficulty.
+
+    log                -  Flag indicating if logging statements should
+                          be printed during the algorithm.
+
+    stream             -  Stream to which logging statements should
+                          be printed.
+
+
+    Output:
+
+    Returns a triple:
+        audit_not_possible (Boolean), new lower bound, terminus (Boolean)
+
+    The first element of this triple is a boolean indicating whether or not
+    we have established that the audit is not possible. If so, this boolean
+    will be True, otherwise it will be False.
+
+    The second element indicates the new lower bound on audit difficulty
+    as a result of the node's evaluation (note it may not have changed from
+    the prior lower bound).
+
+    The third element indicates whether or not we will need to continue
+    exploring children of this node. The boolean 'terminus' will be set to
+    True if we do not need to continue to explore children of this node, and 
+    False otherwise.
+
+    '''
+
+    if not newn.expandable:
+        # 'newn' is a leaf.
+        if newn.estimate == np.inf and newn.best_ancestor.estimate == np.inf:
+
+            if log:
+                print("Found branch that cannot be pruned.", file=stream)
+            
+            return True, np.inf, True
+
+        if newn.best_ancestor.estimate <= newn.estimate:
+            next_lowerbound = max(lowerbound, newn.best_ancestor.estimate)
+            frontier.replace_descendents(newn.best_ancestor,log,stream=stream)
+
+            return False, next_lowerbound, True
+
+        else:
+            next_lowerbound = max(lowerbound, newn.estimate)
+            frontier.insert_node(newn)
+
+            if log:
+                print("    Best audit ", file=stream, end='')
+                newn.best_assertion.display(stream=stream)
+            
+            return False, next_lowerbound, True
+    else:
+        frontier.insert_node(newn)
+
+        if log:
+            if newn.best_assertion != None:
+                print("    Best audit ", file=stream, end='')
+                newn.best_assertion.display(stream=stream)
+            else:
+                print("    Cannot be disproved", file=stream)
+
+        return False, lowerbound, False
+
+
+def perform_dive(node, contest, ballots, neb_matrix, asn_func, lower_bound, \
+    frontier, log, stream=sys.stdout):
+
     '''
     Input:
     node: RaireNode    -  A node in the tree of alternate election outcomes.
-                         Starting point of dive to a leaf.
+                          Starting point of dive to a leaf.
 
     contest: Contest   -  Contest being audited.
 
@@ -725,10 +856,24 @@ def perform_dive(node, contest, ballots, neb_matrix, asn_func):
                           returns an estimate of how "difficult" it will
                           be to audit that assertion.
 
+    lower_bound        -  Current lower bound on audit difficulty.
+
+    frontier           -  Current frontier of our set of alternate outcome
+                          trees.
+
+    log                -  Flag indicating if logging statements should
+                          be printed during the algorithm.
+
+    stream             -  Stream to which logging statements should
+                          be printed.
+
+
     Output:
     Returns the difficulty estimate of the least-difficult-to-audit 
     assertion that can be used to rule out at least one of the branches
-    starting at the input 'node'.  
+    starting at the input 'node'. As this function dives from the given 'node'
+    it will add nodes to the current frontier of our set of alternate outcome
+    trees.
     '''
 
     ncands = len(contest.candidates)
@@ -750,6 +895,9 @@ def perform_dive(node, contest, ballots, neb_matrix, asn_func):
 
     newn = RaireNode([next_cand] + node.tail)
     newn.expandable = False if len(newn.tail) == ncands else True
+    newn.dive_node = True
+
+    node.explored.append(next_cand)
 
     # Assign a 'best ancestor' to the new node. 
     newn.best_ancestor = node.best_ancestor if \
@@ -758,13 +906,18 @@ def perform_dive(node, contest, ballots, neb_matrix, asn_func):
 
     find_best_audit(contest, ballots, neb_matrix, newn, asn_func)
 
-    if not newn.expandable:
-        if newn.estimate == np.inf and newn.best_ancestor.estimate == np.inf:
-            # Audit is not possible: We have found a leaf and cannot
-            # form an assertion to rule out it or any of its ancestors.
-            return np.inf
+    if log:
+        print("DIVE TESTED ", file=stream, end='')
+        newn.display(stream=stream)
 
-        return min(newn.estimate, newn.best_ancestor.estimate)
+    audit_not_possible, next_lowerbound, dive_complete = manage_node(newn, \
+        frontier, lower_bound, log, stream=stream)
 
-    else:
-        return perform_dive(newn, contest, ballots, neb_matrix, asn_func)
+    if audit_not_possible:
+        return np.inf
+
+    if dive_complete:
+        return next_lowerbound
+
+    return perform_dive(newn, contest, ballots, neb_matrix, asn_func, \
+            next_lowerbound, frontier, log, stream=stream)
