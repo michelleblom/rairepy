@@ -26,6 +26,7 @@ class Contest:
         self.candidates = candidates
         self.tot_ballots = total_auditable_ballots
 
+
 def load_contests_from_txt(path):
     """
         Format:
@@ -90,7 +91,85 @@ def load_contests_from_txt(path):
 
         return [Contest(1, cands, winner, total_auditable_ballots, \
             order=order)], cvrs
-                
+
+
+def load_contests_from_raire_raw(txt):
+    """
+    Raw text in raire format.
+    """
+    contests = []
+
+    # A map between ballot id and the relevant CVR.
+    cvrs = {}
+
+    lines = txt.split('\n')
+
+    # Total number of contests described in data file
+    ncontests = int(lines[0])
+
+    # Map between contest id and number of ballots involving that contest
+    num_ballots = {}
+
+    # Map between contest id and the candidates & winner of that contest.
+    contest_info = {}
+
+    for i in range(ncontests):
+        toks = [line.strip() for line in lines[1 + i].strip().split(',')]
+
+        # Get contest id and number of candidates in that contest
+        cid = toks[1]
+        ncands = int(toks[2])
+
+        # Get list of candidate identifiers
+        cands = []
+
+        for j in range(ncands):
+            cands.append(toks[3 + j])
+
+        windx = toks.index("winner")
+        winner = toks[windx + 1]
+
+        informal = 0
+        inf_index = None
+        if "informal" in toks:
+            inf_index = toks.index("informal")
+            informal = int(toks[inf_index + 1])
+
+        order = []
+        if "order" in toks:
+            order = toks[windx + 2:inf_index] if inf_index != None else \
+                toks[windx + 2:]
+
+        contest_info[cid] = (cands, winner, order)
+        num_ballots[cid] = informal
+
+    for l in range(ncontests + 1, len(lines)):
+        toks = [line.strip() for line in lines[l].strip().split(',')]
+
+        cid = toks[0]
+        bid = toks[1]
+        prefs = toks[2:]
+
+        ballot = {}
+        for c in contest_info[cid][0]:
+            if c in prefs:
+                idx = prefs.index(c)
+                ballot[c] = idx
+
+        num_ballots[cid] += 1
+
+        if not bid in cvrs:
+            cvrs[bid] = {cid: ballot}
+        else:
+            cvrs[bid][cid] = ballot
+
+    for cid, (cands, winner, order) in contest_info.items():
+        con = Contest(cid, cands, winner, num_ballots[cid], order=order)
+
+        contests.append(con)
+
+    return contests, cvrs
+
 
 def load_contests_from_raire(path):
     """
@@ -170,6 +249,7 @@ def load_contests_from_raire(path):
 
 
     return contests, cvrs
+
 
 def index_of(cand, list_of_cand):
     '''
@@ -340,6 +420,9 @@ class RaireAssertion:
     
     def to_str(self):
         pass
+
+    def to_json(self):
+        pass
         
 
 class NEBAssertion(RaireAssertion):
@@ -422,6 +505,16 @@ class NEBAssertion(RaireAssertion):
     def to_str(self):
         return "NEB,Winner,{},Loser,{},diff est {}".format(self.winner,
             self.loser, self.difficulty)
+
+    def to_json(self):
+        output = {
+                    "winner": self.winner,
+                    "loser": self.loser,
+                    "already_eliminated": "",
+                    "assertion_type": "WINNER_ONLY",
+                    "Explanation": f"{self.to_str()}"
+                }
+        return output
 
 
 def is_suffix(lista, listb):
@@ -506,6 +599,17 @@ class NENAssertion(RaireAssertion):
         result += ",diff est {}, rules out: {}".format(self.difficulty,\
             self.rules_out)
         return result
+
+    def to_json(self):
+        output = {
+                    "winner": self.winner,
+                    "loser": self.loser,
+                    "already_eliminated": [c for c in self.eliminated],
+                    "assertion_type": "IRV_ELIMINATION",
+                    "Explanation": f"{self.to_str()}"
+                }
+        return output
+
             
 
 class RaireNode:

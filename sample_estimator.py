@@ -17,8 +17,8 @@ import statistics
 import math
 
 # Make sure shangrla is in your PYTHONPATH
-from shangrla.NonnegMean import NonnegMean
-from shangrla.Audit import Assertion
+from shangrla.core.NonnegMean import NonnegMean
+from shangrla.core.Audit import Assertion
 
 
 def sample_size(mean, tw, tl, to, args, N, upper_bound=1, polling=False):
